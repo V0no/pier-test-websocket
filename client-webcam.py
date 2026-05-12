@@ -5,6 +5,7 @@ import base64
 import cv2
 import time
 from datetime import datetime
+import socket
 
 
 RENDER_WS_URL = "wss://pier-test-websocket.onrender.com/ws/frames"
@@ -14,7 +15,17 @@ JPEG_QUALITY = 75
 
 
 async def send_webcam_frames():
-    cap = cv2.VideoCapture(0)
+        
+    tello_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    tello_address = ('192.168.10.2', 8889)
+
+    print("Despertando o Tello...")
+    tello_sock.sendto(b'command', tello_address)
+    time.sleep(1)
+    tello_sock.sendto(b'streamon', tello_address)
+    time.sleep(2)
+    
+    cap = cv2.VideoCapture('udp://@0.0.0.0:11111')
 
     if not cap.isOpened():
         print("Erro: não foi possível acessar a webcam.")
