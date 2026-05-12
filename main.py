@@ -1,5 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, HTMLResponse
+import base64
 from datetime import datetime
 from collections import deque
 import base64
@@ -72,6 +74,26 @@ def get_latest_frames():
         ]
     }
 
+@app.get("/frames/latest/image")
+def get_latest_frame_image():
+    """
+    Retorna a imagem do último frame recebido.
+    """
+    if len(frames_buffer) == 0:
+        return {
+            "status": "error",
+            "message": "Nenhum frame recebido ainda"
+        }
+
+    latest_frame = frames_buffer[-1]
+    image_base64 = latest_frame["image"]
+
+    image_bytes = base64.b64decode(image_base64)
+
+    return Response(
+        content=image_bytes,
+        media_type="image/jpeg"
+    )
 
 @app.get("/sinistros/{placa}")
 def consultar_sinistro(placa: str):
