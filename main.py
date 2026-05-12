@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, HTMLResponse
 import base64
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 from collections import deque
 import base64
@@ -9,6 +10,8 @@ import json
 import os
 
 app = FastAPI(title="Pier Drone Backend")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,

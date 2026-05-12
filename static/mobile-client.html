@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Gateway Mobile - Pier</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        video,
+        canvas {
+            width: 90vw;
+            max-width: 480px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        button {
+            margin: 8px;
+            padding: 12px 18px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        #start {
+            background: #2ecc71;
+        }
+
+        #stop {
+            background: #e74c3c;
+        }
+
+        .info {
+            margin-top: 16px;
+            color: #ccc;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Gateway Mobile - Pier</h1>
+
+    <p>Captura frames da câmera do celular e envia para o backend no Render.</p>
+
+    <button id="start">Iniciar envio</button>
+    <button id="stop">Parar envio</button>
+
+    <br />
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <div class="info">
+        <p>Status: <span id="status">parado</span></p>
+        <p>Frames enviados: <span id="frameCount">0</span></p>
+        <p>Última resposta: <span id="lastResponse">-</span></p>
+    </div>
+
+    <script>
+        const WS_URL = "wss://pier-test-websocket.onrender.com/ws/frames";
+
+        const FPS_ENVIO = 5;
+        const JPEG_QUALITY = 0.75;
+
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const statusText = document.getElementById("status");
+        const frameCountText = document.getElementById("frameCount");
+        const lastResponseText = document.getElementById("lastResponse");
+
+        let websocket = null;
+        let stream = null;
+        let intervalId = null;
+        let frameId = 0;
+        let currentPosition = {
+            latitude: null,
+            longitude: null
+        };
+
+        function updateStatus(text) {
+            statusText.innerText = text;
+            console.log(text);
+        }
+
+        function startLocationWatch() {
+            if (!navigator.geolocation) {
+                console.log("Geolocalização não suportada.");
+                return;
+            }
+
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    currentPosition.latitude = position.coords.latitude;
+                    currentPosition.longitude = position.coords.longitude;
+                },
+                (error) => {
+                    console.log("Erro ao obter localização:", error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 1000,
+                    timeout: 5000
+                }
+            );
+        }
+
+        async function startCamera() {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: "environment",
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                },
+                audio: false
+            });
+
+            video.srcObject = stream;
+        }
+
+        function connectWebSocket() {
+            websocket = new WebSocket(WS_URL);
+
+            websocket.onopen = () => {
+                updateStatus("WebSocket conectado");
+            };
+
+            websocket.onmessage = (event) => {
+                lastResponseText.innerText = event.data;
+            };
+
+            websocket.onerror = (error) => {
+                updateStatus("Erro no WebSocket");
+                console.error(error);
+            };
+
+            websocket.onclose = () => {
+                updateStatus("WebSocket fechado");
+            };
+        }
+
+        function captureAndSendFrame() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                console.log("WebSocket ainda não está aberto.");
+                return;
+            }
+
+            const context = canvas.getContext("2d");
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageBase64 = canvas
+                .toDataURL("image/jpeg", JPEG_QUALITY)
+                .split(",")[1];
+
+            frameId += 1;
+
+            const payload = {
+                frame_id: frameId,
+                timestamp: new Date().toISOString(),
+                latitude: currentPosition.latitude,
+                longitude: currentPosition.longitude,
+                image: imageBase64
+            };
+
+            websocket.send(JSON.stringify(payload));
+
+            frameCountText.innerText = frameId;
+        }
+
+        async function startSending() {
+            try {
+                updateStatus("iniciando câmera...");
+
+                await startCamera();
+                startLocationWatch();
+                connectWebSocket();
+
+                intervalId = setInterval(captureAndSendFrame, 1000 / FPS_ENVIO);
+
+                updateStatus("enviando frames");
+
+            } catch (error) {
+                updateStatus("erro ao iniciar");
+                console.error(error);
+                alert("Erro ao iniciar câmera ou WebSocket. Veja o console.");
+            }
+        }
+
+        function stopSending() {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            updateStatus("parado");
+        }
+
+        document.getElementById("start").addEventListener("click", startSending);
+        document.getElementById("stop").addEventListener("click", stopSending);
+    </script>
+</body>
+
+</html>
