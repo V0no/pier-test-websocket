@@ -8,8 +8,10 @@ from datetime import datetime
 async def send_test_frame():
     uri = "wss://pier-test-websocket.onrender.com/ws/frames"
 
-    async with websockets.connect(uri) as websocket:
-        fake_image_bytes = b"imagem_teste"
+    print(f"Conectando em: {uri}")
+
+    async with websockets.connect(uri, open_timeout=60) as websocket:
+        fake_image_bytes = b"imagem_teste_render"
         fake_image_base64 = base64.b64encode(fake_image_bytes).decode("utf-8")
 
         payload = {
