@@ -15,7 +15,7 @@ JPEG_QUALITY = 75
 
 
 async def send_webcam_frames():
-        
+
     tello_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     tello_address = ('192.168.10.2', 8889)
 
@@ -24,8 +24,8 @@ async def send_webcam_frames():
     time.sleep(1)
     tello_sock.sendto(b'streamon', tello_address)
     time.sleep(2)
-    
-    cap = cv2.VideoCapture('udp://@0.0.0.0:11111')
+
+    cap = cv2.VideoCapture('udp://192.168.10.1:11111')
 
     if not cap.isOpened():
         print("Erro: não foi possível acessar a webcam.")
